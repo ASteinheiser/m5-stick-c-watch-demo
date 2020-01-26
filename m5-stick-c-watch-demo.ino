@@ -20,6 +20,12 @@
 #include "WiFi.h"
 #include <M5StickC.h>
 
+const int speaker_pin = 26;
+int freq = 50;
+int ledChannel = 0;
+int resolution = 10;
+int startup_music[] = {500, 400, 300, 500};
+
 unsigned long startMillis;
 unsigned long currentMillis;
 
@@ -76,6 +82,8 @@ void connectAWS()
   M5.Lcd.setCursor(0, 0, 2);
   Serial.println("AWS IoT Connected!");
   M5.Lcd.println("AWS IoT\nConnected!");
+
+  playMusic(startup_music, 250);
 }
 
 void publishMessage()
@@ -103,16 +111,33 @@ void messageHandler(String &topic, String &payload) {
   M5.Lcd.println(payload);
 }
 
+void playMusic(int music_data[], int noteDelay) {
+  int length = sizeof(music_data);
+
+  for(int i = 0; i < length; i++) {
+    ledcWriteTone(ledChannel, music_data[i]);
+    delay(noteDelay);
+  }
+
+  delay(noteDelay);
+  ledcWriteTone(ledChannel, 0);
+}
+
 void setup() {
   //initial start time
   startMillis = millis();
 
   M5.begin();
+
   M5.Lcd.setRotation(3);
   M5.Lcd.fillScreen(TFT_BLACK);
   M5.Lcd.setCursor(0, 0, 2);
   M5.Lcd.setTextColor(TFT_WHITE,TFT_BLACK);
   M5.Lcd.setTextSize(2);
+
+  // setup speaker HAT
+  ledcSetup(ledChannel, freq, resolution);
+  ledcAttachPin(speaker_pin, ledChannel);
 
   Serial.begin(9600);
   connectAWS();
