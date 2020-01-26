@@ -18,6 +18,7 @@
 #include <MQTTClient.h>
 #include <ArduinoJson.h>
 #include "WiFi.h"
+#include <M5StickC.h>
 
 unsigned long startMillis;
 unsigned long currentMillis;
