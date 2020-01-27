@@ -24,7 +24,7 @@ const int speaker_pin = 26;
 int freq = 50;
 int ledChannel = 0;
 int resolution = 10;
-int startup_music[] = {500, 400, 300, 500};
+int startup_music[4] = {500, 400, 300, 500};
 
 unsigned long startMillis;
 unsigned long currentMillis;
@@ -83,7 +83,7 @@ void connectAWS()
   Serial.println("AWS IoT Connected!");
   M5.Lcd.println("AWS IoT\nConnected!");
 
-  playMusic(startup_music, 250);
+  playMusic(startup_music, sizeof(startup_music), 250);
 }
 
 void publishMessage()
@@ -100,21 +100,47 @@ void publishMessage()
 void messageHandler(String &topic, String &payload) {
   Serial.println("incoming: " + topic + " - " + payload);
 
-  StaticJsonDocument<200> doc;
-  deserializeJson(doc, payload);
-  const char* message = doc["message"];
+  // very ghetto but allows the string to be parsed as JSON
+  for(int i = 0; i < payload.length(); i++) {
+    if(payload[i] == '"' || payload[i] == '\\') {
+      payload.remove(i, 1);
+    }
+  }
+
+  const char* json = payload.c_str();
+
+  StaticJsonDocument<500> doc;
+  DeserializationError error = deserializeJson(doc, json);
+  if (error) {
+    Serial.println("Error parsing json string: (");
+    Serial.println(payload);
+    Serial.println(")");
+    Serial.println("Error:");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  int noteDelay = doc["delay"];
+  JsonArray notes = doc["notes"];
+
+  int notesArray[notes.size()] = {};
+  int noteCount = 0;
+  for(JsonVariant v : notes) {
+    notesArray[noteCount] = v.as<int>();
+    noteCount++;
+  }
 
   M5.Lcd.fillScreen(TFT_BLACK);
   M5.Lcd.setCursor(0, 0, 2);
   M5.Lcd.setTextColor(TFT_WHITE);
-  M5.Lcd.setTextFont(2);
+  M5.Lcd.setTextFont(1);
   M5.Lcd.println(payload);
+
+  playMusic(notesArray, notes.size(), noteDelay);
 }
 
-void playMusic(int music_data[], int noteDelay) {
-  int length = sizeof(music_data);
-
-  for(int i = 0; i < length; i++) {
+void playMusic(int music_data[], int music_length, int noteDelay) {
+  for(int i = 0; i < music_length; i++) {
     ledcWriteTone(ledChannel, music_data[i]);
     delay(noteDelay);
   }
